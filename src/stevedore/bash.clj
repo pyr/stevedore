@@ -1,15 +1,15 @@
-(ns pallet.stevedore.bash
-  (:require
-    [pallet.common.resource :as resource]
-    [pallet.common.string :as common-string]
-    [clojure.string :as string])
-  (:use
-   [pallet.stevedore.common]
-   [pallet.stevedore
-    :only [emit emit-do special-forms splice-seq with-source-line-comments]]
-   [pallet.common.string :only [quoted substring underscore]]))
+(ns stevedore.bash
+  (:require [clojure.string :as str]
+            [stevedore.common :refer :all]
+            [stevedore.script :refer [emit emit-do special-forms
+                                      splice-seq with-source-line-comments]]))
 
-(derive ::bash :pallet.stevedore.common/common-impl)
+(defn ^String quoted-string
+  "Add quotes to the argument s as a string"
+  [s]
+  (str "\"" s "\""))
+
+(derive ::bash :stevedore.common/common-impl)
 
 ;;; * Keyword and Operator Classes
 (def infix-operators
@@ -56,30 +56,33 @@
 ;; Helper functions for generating shFlags declarations
 ;; and initializations
 
-(defn- shflags-declare [type long short doc default]
+(defn- shflags-declare
   "Helper for shFlags flag declarations"
+  [type long short doc default]
   (str "DEFINE_" (name type) " "
-       (apply str (interpose " " (map quoted [long default doc short])))
+       (apply str (interpose " " (map quoted-string [long default doc short])))
        "\n"))
 
 (defn- shflags-doc-string [doc]
   (assert (string? doc))
-  (str "FLAGS_HELP=" (quoted doc) "\n"))
+  (str "FLAGS_HELP=" (quoted-string doc) "\n"))
 
 (defn- shflags-setup []
   (str "FLAGS \"$@\" || exit 1\n"
        "eval set -- \"${FLAGS_ARGV}\"\n"))
 
-(defn- deconstruct-sig [sig]
+(defn- deconstruct-sig
   "Returns a vector with the first element being a vector
   of arguments and second being a vector of flags"
+  [sig]
   (assert (vector? sig))
   (let [[args flags :as dsig] (split-with symbol? sig)]
     (assert (or (empty? flags) (every? vector? flags)))
     dsig))
 
-(defn shflags-make-declaration [doc? sig]
+(defn shflags-make-declaration
   "Returns a shflags declaration"
+  [doc? sig]
   (let [[args flags] (deconstruct-sig sig)]
     (str (when (string? doc?)
            (str (shflags-doc-string doc?)))
@@ -89,7 +92,7 @@
             (shflags-setup)))
          (when (seq args)
            (str
-             (string/join
+             (str/join
               "\n" (map #(str (emit %1) "=" "$" %2) args (iterate inc 1)))
              \newline)))))
 
@@ -135,7 +138,7 @@
                        (logical-operator? operator) ["[ " " ]"]
                        (arithmetic-operators operator) ["(" ")"]
                        :else ["" ""])
-        quoting (if (quoted-operator? operator) quoted identity)]
+        quoting (if (quoted-operator? operator) quoted-string identity)]
     (str open (emit-quoted-if-not-subexpr quoting (first args)) " "
          (get infix-conversions operator operator)
          " " (emit-quoted-if-not-subexpr quoting (second args)) close)))
@@ -174,15 +177,15 @@
   var-name)
 
 (defn- munge-symbol [var-name]
-  (let [var-name (string/replace var-name "-" "__")
-        var-name (string/replace var-name "." "_DOT_")
-        var-name (string/replace var-name "/" "_SLASH_")]
+  (let [var-name (str/replace var-name "-" "__")
+        var-name (str/replace var-name "." "_DOT_")
+        var-name (str/replace var-name "/" "_SLASH_")]
     var-name))
 
 (defn- set-map-values
   [var-name m]
   (str "{ "
-         (string/join ""
+         (str/join ""
           (map
            #(format "hash_set %s %s %s; "
                     (munge-symbol (emit var-name))
@@ -217,20 +220,13 @@
   (apply clojure.core/str (map emit args)))
 
 (defmethod emit-special [::bash 'quoted] [type [quoted & args]]
-  (common-string/quoted (string/join " " (map emit args))))
+  (quoted-string (str/join " " (map emit args))))
 
 (defmethod emit-special [::bash 'println] [type [println & args]]
-  (str "echo " (string/join " " (map emit args))))
+  (str "echo " (str/join " " (map emit args))))
 
 (defmethod emit-special [::bash 'print] [type [println & args]]
-  (str "echo -n " (string/join " " (map emit args))))
-
-
-(defonce
-  ^{:doc
-    "bash library for associative arrays in bash 3. You need to include this in
-     your script if you use associative arrays, e.g. with `assoc!`."}
-  hashlib (resource/slurp "stevedore/hashlib.bash"))
+  (str "echo -n " (str/join " " (map emit args))))
 
 
 (defmethod emit [::bash nil] [expr]
@@ -266,23 +262,20 @@
 
 (defmethod emit [::bash clojure.lang.IPersistentVector] [expr]
   (str (if *delimited-sequence* "(" "")
-       (string/join " " (map emit expr))
+       (str/join " " (map emit expr))
        (if *delimited-sequence* ")" "")))
 
 (defmethod emit [::bash clojure.lang.IPersistentMap] [expr]
   (letfn [(subscript-assign
            [pair]
            (str "[" (emit (key pair)) "]=" (emit (val pair))))]
-    (str "(" (string/join " " (map subscript-assign (seq expr))) ")")))
+    (str "(" (str/join " " (map subscript-assign (seq expr))) ")")))
 
-;;; TODO move to pallet.common.string
 (defn comma-list
   "Emit a collection as a parentesised, comma separated list.
        (comma-list [a b c]) => \"(a, b, c)\""
   [coll]
-  (str "(" (string/join ", " coll) ")"))
-
-
+  (str "(" (str/join ", " coll) ")"))
 
 
 (defn emit-method [obj method args]
@@ -292,7 +285,7 @@
   (if (or (compound-form? form)
           (= 'if (first form))
           (.contains (emit form) "\n"))
-    (str \newline (string/trim (emit form)) \newline)
+    (str \newline (str/trim (emit form)) \newline)
     (str " " (emit form) ";")))
 
 (defmethod emit-special [::bash 'if] [type [if test true-form & false-form]]
@@ -316,13 +309,13 @@
 (defmethod emit-special [::bash 'case]
   [type [case test & exprs]]
   (str "case " (emit test) " in\n"
-       (string/join ";;\n"
+       (str/join ";;\n"
         (map #(str (emit (first %)) ")\n" (emit (second %)))
              (partition 2 exprs)))
        ";;\nesac"))
 
 (defmethod emit-special [::bash 'dot-method] [type [method obj & args]]
-  (let [method (symbol (substring (str method) 1))]
+  (let [method (symbol (subs (str method) 1))]
     (emit-method obj method args)))
 
 (defmethod emit-special [::bash 'return] [type [return expr]]
@@ -387,14 +380,14 @@
   (str "if "
        (emit test)
        "; then"
-       (str \newline (string/trim (emit-do form)) \newline)
+       (str \newline (str/trim (emit-do form)) \newline)
        "fi"))
 
 (defmethod emit-special [::bash 'when-not] [type [when-not test & form]]
   (str "if ! ( "
        (emit test)
        " ); then"
-       (str \newline (string/trim (emit-do form)) \newline)
+       (str \newline (str/trim (emit-do form)) \newline)
        "fi"))
 
 (defmethod emit-special [::bash 'while]
@@ -415,7 +408,7 @@
 
 (defmethod emit-special [::bash 'group]
   [type [ group & exprs]]
-  (str "{\n" (string/join (emit-do exprs)) "}"))
+  (str "{\n" (str/join (emit-do exprs)) "}"))
 
 (defmethod emit-special [::bash 'pipe]
   [type [ pipe & exprs]]

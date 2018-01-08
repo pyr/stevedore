@@ -1,9 +1,8 @@
-(ns pallet.stevedore.common
+(ns stevedore.common
   (:require
    [clojure.java.io :refer [file]]
    [clojure.string :as string]
-   [clojure.tools.logging :refer [tracef]]
-   [pallet.stevedore
+   [stevedore.script
     :refer [chain-commands checked-commands do-script emit *script-language*
             special-forms splice-args splice-seq *src-line-comments*
             with-script-language with-source-line-comments]]))
@@ -35,7 +34,7 @@
 ;; calls
 ;;  (emit-function-call test-fn [1 2 "a"])
 ;;
-;; Generally, the implementations of `emit` in pallet.stevedore.common, which
+;; Generally, the implementations of `emit` in stevedore.common, which
 ;; dispatch on compound types, should be sufficient for most implementations.
 ;;
 ;; The other emit-* functions are convenience functions
@@ -80,8 +79,9 @@
 
 ;;; Implementation coverage tests
 ;;;
-(defn- emit-special-implemented? [impl special-function]
+(defn- emit-special-implemented?
   "Predicate for successfully dispatched special functions."
+  [impl special-function]
   (try
     (with-script-language impl
       (emit-special special-function)
@@ -95,15 +95,17 @@
            impl " " special-function "]"))))
       (catch Exception e true))))
 
-(defn emit-special-implemented [impl]
+(defn emit-special-implemented
   "Returns a vector of successfully dispatched special functions.
    Example usage:
-       (emit-special-implemented :pallet.stevedore.bash/bash)"
+       (emit-special-implemented :stevedore.bash/bash)"
+  [impl]
   (filter #(emit-special-implemented? impl %) special-forms))
 
-(defn emit-special-not-implemented [impl]
+(defn emit-special-not-implemented
   "Returns a vector of special-functions that fail to dispatch.
-       (emit-special-not-implemented :pallet.stevedore.bash/bash)"
+       (emit-special-not-implemented :stevedore.bash/bash)"
+  [impl]
   (remove #(emit-special-implemented? impl %) special-forms))
 
 ;;; Common implementation
@@ -114,8 +116,6 @@
 (defmethod emit-special [::common-impl 'invoke]
   [type form]
   (let [[fn-name-or-map & args] form]
-    (tracef "INVOKE %s %s %s" (class fn-name-or-map) fn-name-or-map args)
-    (tracef "INVOKE %s" (meta form))
     (cond
      (= fn-name-or-map splice-seq)
      (string/join " " (first args))

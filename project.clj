@@ -1,11 +1,7 @@
-(defproject com.palletops/stevedore "0.8.0-SNAPSHOT"
-  :description "Embeds shell script in clojure"
-  :url "http://palletops.com"
+(defproject stevedore "0.9.0-SNAPSHOT"
+  :description "An embedding of shell script in clojure."
+  :url "https://github.com/pyr/stevedore"
   :license {:name "Eclipse Public License"
-            :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :scm {:url "git@github.com:pallet/stevedore.git"}
-
-  :dependencies [[org.clojure/tools.logging "0.2.0"
-                  :exclusions [org.clojure/clojure]]
-                 [com.palletops/pallet-common "0.4.0"
-                  :exclusions [org.clojure/clojure]]])
+            :url  "http://www.eclipse.org/legal/epl-v10.html"}
+  :dependencies [[org.clojure/clojure "1.9.0"]]
+  :global-vars {*warn-on-reflection* true})

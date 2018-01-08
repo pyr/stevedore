@@ -1,18 +1,19 @@
-(ns pallet.stevedore
+(ns stevedore.script
   "Embed shell script in clojure.
 
    Shell script is embedded by wrapping in the `script` macro.
    (script (ls)) => \"ls\"
 
    The result of a `script` form is a string."
-  (:require
-   [clojure.java.io :as io]
-   [clojure.set :refer [union]]
-   [clojure.string :as string]
-   [clojure.tools.logging :refer [tracef]]
-   [clojure.walk :as walk]
-   [pallet.common.deprecate :as deprecate]
-   [pallet.common.string :refer [underscore]]))
+  (:require [clojure.java.io :as io]
+            [clojure.set :refer [union]]
+            [clojure.string :as str]
+            [clojure.walk :as walk]))
+
+(defn ^String underscore
+  "Replace all occurances of - with _"
+  [^CharSequence s]
+  (str/replace s \- \_))
 
 (declare ^{:dynamic true} *script-language*)
 
@@ -32,13 +33,13 @@
 ;; To specify which implementation to use, `script` must be wrapped in
 ;; `with-script-language`.
 ;;
-;; (with-script-language :pallet.stevedore.bash/bash
+;; (with-script-language :stevedore.bash/bash
 ;;   (script
 ;;     (println "asdf")))
 
 (defmacro with-script-language
   "Set which stevedore implementation to use. Currently supports:
-   :pallet.stevedore.bash/bash"
+   :stevedore.bash/bash"
   [impl & body]
   `(binding [*script-language* ~impl]
     ~@body))
@@ -198,7 +199,7 @@
   (when-not (bound? #'*script-language*)
     (throw
      (ex-info
-      "Attempting to use stevedore without specifying the target script language. Use pallet.stevedore/with-script-language to specify the target script language."
+      "Attempting to use stevedore without specifying the target script language. Use stevedore.script/with-script-language to specify the target script language."
       {:expr expr})))
   (throw
    (ex-info
@@ -240,7 +241,6 @@
 
 (defn- form-meta
   [new-form form ]
-  (tracef "form-meta %s %s" form (meta form))
   (if-let [m (and *apply-form-meta* (meta form))]
     (if (number? new-form)
       new-form
@@ -303,14 +303,13 @@
   data structure of the same type, then applies outer to the result.
   Recognizes all Clojure data structures. Consumes seqs as with doall."
   [inner outer form]
-  (tracef "walk %s %s %s" form (meta form) (class form))
   (cond
    (or (list? form) (instance? clojure.lang.Cons form))
    (outer (with-meta
             (if (and resolve-script-fns
                      (symbol? (first form))
                      (not (unresolved (symbol (name (first form))))))
-              (list* (first form) (map inner (rest form)))
+              (list* (name (first form)) (map inner (rest form)))
               (list* (map inner form)))
             (meta form)))
 
@@ -324,7 +323,6 @@
 (declare inner-walk outer-walk)
 
 (defn- inner-walk [form]
-  (tracef "inner-walk %s %s" form (meta form) (class form))
   (cond
    (unquote? form) (handle-unquote form)
    (unquote-splicing? form) (handle-unquote-splicing form)
@@ -334,20 +332,16 @@
    :else (walk inner-walk outer-walk form)))
 
 (defn- outer-walk [form]
-  (tracef "outer-walk %s %s %s" form (meta form) (class form))
   (cond
    (symbol? form) (form-meta (list 'quote form) form)
    (seq? form)
    (do
-     (tracef "outer-walk 2 %s %s %s" form (meta form) (class form))
      (form-meta (list* `list form) form))
    :else form))
 
 (defn quasiquote*
   [form]
-  (tracef "quasiquote* %s %s" form (meta form))
   (let [post-form (walk inner-walk outer-walk form)]
-    (tracef "quasiquote return %s" post-form)
     post-form))
 
 (defmacro quasiquote
@@ -376,7 +370,7 @@
   (let [n (- (count script) (count statement-separator))
         m (meta form)]
     (if (and (pos? n) (not (= statement-separator (.substring script n))))
-      (str (when (and m (not (string/blank? script)))
+      (str (when (and m (not (str/blank? script)))
              (script-location-comment m))
            script
            statement-separator)
@@ -388,19 +382,17 @@
   (->> exprs
        (map emit)
        (map statement exprs)
-       string/join))
+       str/join))
 
 (defn emit-script
   [forms]
-  (tracef "emit-script %s" forms)
-  (tracef "emit-script metas %s" (vec (map meta forms)))
   (let [code (if (> (count forms) 1)
                (emit-do forms)
                (let [form (first forms)
                      m (meta form)]
                  (let [s (emit form)]
                    (str
-                    (when (and m (not (string/blank? s)))
+                    (when (and m (not (str/blank? s)))
                       (script-location-comment m))
                     s))))]
     code))
@@ -414,13 +406,13 @@
     (if argument
       (if (> (.length opt) 1)
         (if (vector? argument)
-          (string/join
+          (str/join
            " "
            (map #(str dash opt (str (if do-assign "=" " ") \" % \")) argument))
           (str dash opt (if-not (= argument true)
                           (str (if do-assign "=" " ") \" argument \"))))
         (if (vector? argument)
-          (string/join
+          (str/join
            " "
            (map #(str "-" opt (str " " \" % \")) argument))
           (str "-" opt (if-not (= argument true) (str " " \" argument \"))))))))
