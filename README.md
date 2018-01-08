@@ -1,20 +1,27 @@
 stevedore: An embedding of shell script in clojure.
 ===================================================
 
+[![Build Status](https://secure.travis-ci.org/pyr/stevedore.png)](http://travis-ci.org/pyr/stevedore)
 
-## Installation
+This is a resurrection of the script abstraction part of https://github.com/pallet/stevedore.
+This only supports bash as a target for now.
 
-stevedore is distributed as a jar, and is available in the
-[clojars repository](http://clojars.org/com.palletops/stevedore).
-
-Installation is with lein or your favourite maven repository aware build tool.
-
-### lein project.clj
 
 ```clj
 :dependencies [[spootnik/stevedore "0.9.0"]]
 ```
 
+## Usage
+
+```clojure
+(require '[stevedore.bash :as b]
+         '[stevedore.script :refer [with-script-language script]])
+
+(with-script-language ::b/bash
+  (script
+    (defn showfiles [pattern] (pipe (ls) (grep @pattern)))
+    (showfiles foo)))
+```
 ## License
 
 Licensed under [EPL](http://www.eclipse.org/legal/epl-v10.html)
