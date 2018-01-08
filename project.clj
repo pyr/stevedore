@@ -1,4 +1,4 @@
-(defproject spootnik/stevedore "0.9.1"
+(defproject spootnik/stevedore "0.9.2-SNAPSHOT"
   :description "An embedding of shell script in clojure."
   :url "https://github.com/pyr/stevedore"
   :license {:name "Eclipse Public License"
