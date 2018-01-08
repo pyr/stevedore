@@ -438,3 +438,8 @@
   (if (seq args)
     (str (emit name) " " (reduce str (interpose " " args)))
     (emit name)))
+
+(defmacro script
+  [& forms]
+  `(stevedore.script/with-script-language ::bash
+     (stevedore.script/script ~@forms)))

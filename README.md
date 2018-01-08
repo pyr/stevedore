@@ -8,19 +8,17 @@ This only supports bash as a target for now.
 
 
 ```clj
-:dependencies [[spootnik/stevedore "0.9.0"]]
+:dependencies [[spootnik/stevedore "0.9.1"]]
 ```
 
 ## Usage
 
 ```clojure
-(require '[stevedore.bash :as b]
-         '[stevedore.script :refer [with-script-language script]])
+(require '[stevedore.bash :as bash])
 
-(with-script-language ::b/bash
-  (script
-    (defn showfiles [pattern] (pipe (ls) (grep @pattern)))
-    (showfiles foo)))
+(bash/script
+  (defn showfiles [pattern] (pipe (ls) (grep @pattern)))
+  (showfiles foo))
 ```
 ## License
 
